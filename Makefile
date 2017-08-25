@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CC=gcc
-CFLAGS=-std=c99 -ggdb
+CFLAGS=-std=c99 -ggdb #-Wall
 
 all: memory memory_with_argument
 

@@ -1,6 +1,3 @@
-#define _BSD_SOURCE
-#define _DEFAULT_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,8 +6,6 @@
 #include <limits.h>
 #include <time.h>
 
-
-char buffer_time[1024];
 
 struct process{
   unsigned int pid;
@@ -118,6 +113,13 @@ void get_proc_cpuinfo()
 
     }
 
+  printf( "\nCPU (static data)\n" );
+  printf( "--------------------\n" );
+  printf( "Modellname: %s", cpu_instance.modelname );
+  printf( "L3 Cache Size: %ld kB\n", cpu_instance.cachesize );
+  printf( "Number of CPU cores: %ld\n", cpu_instance.num_cores );
+  printf( "\n" );
+    
   return;
 
 }
@@ -201,6 +203,12 @@ static void get_proc_meminfo( void )
       	}
 
     }
+
+  printf( "\nMemory (static data)\n" );
+  printf( "--------------------\n" );
+  printf( "Memory total: %ld\n", memory_instance.memory_total );
+  printf( "Swap total: %ld\n", memory_instance.swap_total);
+  printf( "\n" );
 
   return;
 
@@ -315,6 +323,14 @@ static void get_mem_proc_meminfo( void )
 
     }
 
+  printf( "\n\nMemory (dynamic data)\n" );
+  printf( "---------------------\n" );
+  printf( "Memory free: %ld\n", memory_instance.memory_free);
+  printf( "Memory available: %ld\n", memory_instance.memory_avail);
+  printf( "Swap free: %ld\n", memory_instance.swap_free);
+  printf( "\n" );
+  
+  
   fclose( fp );
 
   return;
@@ -485,7 +501,19 @@ static void get_proc_status( void )
       
     }
 
+
   fclose( fp );
+
+  printf( "\n\nMemory (proc-status)\n" );
+  printf( "---------------------\n" );
+  printf( "VmPeak: %ld\n", memory_instance.vmpeak);
+  printf( "VmSize: %ld\n", memory_instance.vmsize);
+  printf( "VmHWM: %ld\n", memory_instance.vmhwm);
+  printf( "VmRSS: %ld\n", memory_instance.vmrss);
+  printf( "Number of threads: %d\n", process_instance.threads );
+  printf( "voluntary_ctxt_switches: %u\n", process_instance.voluntary_ctxt_switches );
+  printf( "nonvoluntary_ctxt_switches: %u\n", process_instance.nonvoluntary_ctxt_switches );
+  printf( "\n" );
 
   return;
 
@@ -537,6 +565,13 @@ static void get_proc_io( void )
 
   fclose ( fp );
 
+  printf( "\nIO:\n" );
+  printf( "=====\n" );
+  printf( "read_bytes: %u\n", io_instance.read_bytes );
+  printf( "write_bytes: %u\n", io_instance.write_bytes );
+  printf( "\n\n" );
+
+
   return;
 
 }
@@ -550,7 +585,7 @@ static void get_proc_stat( void )
   char *string, *string1, *ptr;
   
   sprintf( buffer, "/proc/%d/stat", process_instance.pid );
-  //  printf ("\nget_proc_stat\n" );
+  printf ("\nget_proc_stat\n" );
   
   FILE *fp;
 
@@ -564,7 +599,9 @@ static void get_proc_stat( void )
     } 
 
   fgets( buffer, 1024, fp );
+
   string = strtok ( buffer, delimeter );
+  printf( "String in stat: %s\n", string);
   
   for ( int i = 1; i < 42; i++ )
     {
@@ -597,6 +634,15 @@ static void get_proc_stat( void )
     }
 
   fclose( fp );
+
+   printf( "\nStat file \n" ); 
+   printf( "--------------------\n" ); 
+   printf( "State: %s\n", process_instance.state );
+   printf( "Minflt: %u\n", memory_instance.minflt );
+   printf( "Majflt: %u\n", memory_instance.majflt );
+   printf( "utime: %u\n", process_instance.utime );
+   printf( "stime: %u\n", process_instance.stime );
+   printf( "last cpu: %u\n", process_instance.cpulast );
 
   return;
 
@@ -642,6 +688,11 @@ static void get_load_avg( void )
   for ( int i = 0; i <= 2; i++ )
     system_instance.load_avg[ i ] = loadavg[ i ];
 
+
+  printf( "\nSystem (load/dynamic data)\n" );
+  printf( "--------------------\n" );
+  for ( int i = 0; i <= 2; i++ )
+    printf( "%f \n", system_instance.load_avg[ i ] ); 
 
   return;
 
@@ -696,6 +747,15 @@ void get_cpu_proc_cpuinfo()
 
   fclose( fp );
 
+    
+  printf( "\nCPU (dynamic data)\n" );
+  printf( "--------------------\n" );
+
+  for ( int i = 0; i < cpu_instance.num_cores; i++ )
+    printf( "CPU clock rate CPU: %f \n", cpu_instance.core_frequency[ i ] );
+
+  printf( "\n" );
+
   return;
 
 }
@@ -706,43 +766,76 @@ void push_data_to_db()
 
   char buffer[1024];
 
+  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s memory_total=%u,memory_free=%u,memory_avail=%u,swap_total=%u,swap_free=%u,min_flt=%u,maj_flt=%u,vmpeak=%u,vmsize=%u,vmhwm=%u,vmrss=%u,read_bytes=%u,write_bytes=%u'","memory","profit",memory_instance.memory_total,memory_instance.memory_free,memory_instance.memory_avail,memory_instance.swap_total, memory_instance.swap_free,memory_instance.minflt,memory_instance.majflt,memory_instance.vmpeak,memory_instance.vmsize,memory_instance.vmhwm, memory_instance.vmrss,io_instance.read_bytes,io_instance.write_bytes);
+  system (buffer );
+
+
+  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s read_bytes=%u,write_bytes=%u'","io","profit",io_instance.read_bytes,io_instance.write_bytes);
+  system (buffer );
+
+
+  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s load_average1=%u,load_average5=%u,load_average15=%u'","system","profit",system_instance.load_avg[0],system_instance.load_avg[1],system_instance.load_avg[2]);
+  system (buffer );
+
+
+  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s cpufrequency_core0=%f,cpufrequency_core1=%f,cpufrequency_core2=%f,cpufrequency_core3=%f'","cpu","profit",cpu_instance.core_frequency[0], cpu_instance.core_frequency[1],cpu_instance.core_frequency[2],cpu_instance.core_frequency[3]);
+  system (buffer );
+
+
+  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s pid=%u,state=%s,num_threads=%u,utime=%u,stime=%u,voluntary_ctxt_switches=%u,nonvoluntary_ctxt_switches=%u'","process","profit",process_instance.pid,process_instance.state,process_instance.threads,process_instance.utime,process_instance.stime,process_instance.voluntary_ctxt_switches,process_instance.nonvoluntary_ctxt_switches );
+  system ( buffer );
+
   //
   // Memory
- 
-  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s memory_total=%u,memory_free=%u,memory_avail=%u,swap_total=%u,swap_free=%u,min_flt=%u,maj_flt=%u,vmpeak=%u,vmsize=%u,vmhwm=%u,vmrss=%u,read_bytes=%u,write_bytes=%u %s'","memory","profit",memory_instance.memory_total,memory_instance.memory_free,memory_instance.memory_avail,memory_instance.swap_total, memory_instance.swap_free,memory_instance.minflt,memory_instance.majflt,memory_instance.vmpeak,memory_instance.vmsize,memory_instance.vmhwm, memory_instance.vmrss,io_instance.read_bytes,io_instance.write_bytes,buffer_time);
-  system (buffer );
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s memory_total=%u'", "memory", "profit", memory_instance.memory_total ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s memory_free=%u'", "memory", "profit", memory_instance.memory_free ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s memory_avail=%u '", "memory", "profit", memory_instance.memory_avail ); */
+  /* system ( buffer ); */
 
 
-  // 
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s swap_total=%u '", "memory", "profit", memory_instance.swap_total ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s swap_free=%u '", "memory", "profit", memory_instance.swap_free ); */
+  /* system ( buffer ); */
+
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s min_flt=%u '", "memory", "profit", memory_instance.minflt ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s maj_flt=%u '", "memory", "profit", memory_instance.majflt ); */
+  /* system ( buffer ); */
+
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s vmpeak=%u '", "memory", "profit", memory_instance.vmpeak ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s vmsize=%u '", "memory", "profit", memory_instance.vmsize ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s vmhwm=%u '", "memory", "profit", memory_instance.vmhwm ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s vmrss=%u '", "memory", "profit", memory_instance.vmrss ); */
+  /* system ( buffer ); */
+
+
+  //
   // IO
 
-  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s read_bytes=%u,write_bytes=%u %s'","io","profit",io_instance.read_bytes,io_instance.write_bytes,buffer_time);
-  system (buffer );
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s read_bytes=%u 1434055562000000000'", "memory", "profit", io_instance.read_bytes ); */
+  /* system ( buffer ); */
+
+  /* sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s write_bytes=%u 1434055562000000000'", "memory", "profit", io_instance.write_bytes ); */
+  /* system ( buffer ); */
 
 
-  //
-  // Load average
-  
-  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s load_average1=%f,load_average5=%f,load_average15=%f %s'","system","profit",system_instance.load_avg[0],system_instance.load_avg[1],system_instance.load_avg[2],buffer_time);   
-  system (buffer );  
-  
-  
-  //
-  // CPU
-  
-  sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s cpufrequency_core0=%f,cpufrequency_core1=%f,cpufrequency_core2=%f,cpufrequency_core3=%f %s'","cpu","profit",cpu_instance.core_frequency[0], cpu_instance.core_frequency[1],cpu_instance.core_frequency[2],cpu_instance.core_frequency[3],buffer_time);
-  system (buffer );
-
-
-  //
-  // Process
-
-   sprintf( buffer, "curl -i -XPOST 'http://localhost:8086/write?db=myTelegraf' --data-binary '%s,location=%s pid=%u,num_threads=%u,utime=%u,stime=%u,voluntary_ctxt_switches=%u,nonvoluntary_ctxt_switches=%u %s'","process","profit",process_instance.pid,process_instance.threads,process_instance.utime,process_instance.stime,process_instance.voluntary_ctxt_switches,process_instance.nonvoluntary_ctxt_switches,buffer_time );  
-   system ( buffer ); 
-
-   // state wurde rausgenommen
-
-   return;
+  return;
 
 }
 
@@ -756,7 +849,7 @@ unsigned int get_pid( const char *prgname )
   char *c_ptr;
   char tmp[ 256 ];
   char buffer[1024];
- 
+  
   unsigned int pid;
 
   sprintf( tmp, "pgrep %s > /tmp/out.txt", prgname );
@@ -777,6 +870,7 @@ unsigned int get_pid( const char *prgname )
   fgets( buffer, 1024, fp );
   
   pid = strtol( buffer, &c_ptr, 10);
+  //  printf( "PID = %d\n", pid );
 
   return pid;
   
@@ -788,11 +882,6 @@ int main ( int argc, char **argv )
  
   double intervall = 1.0;
   long int steps = 1;
-
-  time_t now;
-  //time(&now);
-  struct tm *myTm;
-  //myTm = localtime(&now);
     
     
   char *c_ptr;
@@ -800,6 +889,8 @@ int main ( int argc, char **argv )
   char *prgname;
   prgname = (char *) malloc( sizeof( char ) * 256 );
     
+    
+  printf( "agc: %d, argv 0 = %s; argv 1 = %s, argv 2 = %s\n\n", argc, argv[0], argv[1], argv[2] );
     
   switch ( argc )
     {
@@ -817,6 +908,7 @@ int main ( int argc, char **argv )
       intervall = strtod( argv[1], &c_ptr );
       steps = strtol( argv[2], &c_ptr, 10 );
       prgname = strcpy(prgname, argv[3]);
+
       break;
 
     default:
@@ -842,7 +934,6 @@ int main ( int argc, char **argv )
 	  system( sleep_intervall );
 	    
 	}
-
     }
 
 
@@ -867,16 +958,15 @@ int main ( int argc, char **argv )
     {
 
       process_instance.pid = get_pid( argv[ 3 ] );
+      printf( "\nMisc\n" );
+      printf( "------\n" );
+      printf( "Programmname: %s\n", prgname);
+      printf( "PID: %d\n", process_instance.pid ); 
+
 
       for ( int i = 0; i < steps ; i++ )
 	{
-	  time(&now);
-	  myTm = localtime(&now);
-	  sprintf(buffer_time,"%04d%02d%02d%02d%02d%02d", myTm->tm_year+1900, myTm->tm_mon+1, myTm->tm_mday, myTm->tm_hour, myTm->tm_min, myTm->tm_sec);
-	  //	  sprintf(buffer_time,"%04d-%02d-%02dT%02d:%02d:%02dZ", myTm->tm_year+1900, myTm->tm_mon+1, myTm->tm_mday, myTm->tm_hour, myTm->tm_min, myTm->tm_sec);
-	  //	  printf("%04d-%02d-%02dT%02d:%02d:%02dZ\n", myTm->tm_year+1900, myTm->tm_mon+1, myTm->tm_mday, myTm->tm_hour, myTm->tm_min, myTm->tm_sec );
-	  //printf( "%s\n", buffer_time );
-
+	    
 	  get_mem_proc_meminfo(); 
 	  get_cpu_proc_cpuinfo();
 	    
@@ -888,9 +978,9 @@ int main ( int argc, char **argv )
 
 	  push_data_to_db();
 
-	  //system( sleep_intervall );
+	  system( sleep_intervall );
 
-	  usleep( 1000000 ); // system( sleep_intervall );
+	  // usleep( 1000000 ); // system( sleep_intervall );
 	    
 	}
 	
